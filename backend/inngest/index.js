@@ -23,12 +23,13 @@ const syncUserFunction = inngest.createFunction(
 
 //Inngest function to delete user from database when user is deleted from clerk
 const syncUserDeletion = inngest.createFunction(
-    {id: 'delete-user-from-clerk',
-    triggers: [{event: 'clerk/user.deleted'}],
+    {
+        id: 'delete-user-from-clerk',
+        triggers: [{ event: 'clerk/user.deleted' }]
     },
-    async({event})=>{
-        const{data} = event
-        await prisma.user.delete({
+    async ({ event }) => {
+        const { data } = event;
+        await prisma.user.deleteMany({
             where: {
                 id: data.id
             }
@@ -37,24 +38,32 @@ const syncUserDeletion = inngest.createFunction(
 );
 
 //Inngest function to update user in database when user is updated in clerk
+// Inngest function to update/create user in database when user is updated in clerk
 const syncUserUpdate = inngest.createFunction(
-    {id: 'update-user-from-clerk',
-    triggers: [{event: 'clerk/user.updated'}],
+    {
+        id: 'update-user-from-clerk',
+        triggers: [{ event: 'clerk/user.updated' }]
     },
-    async({event})=>{
-        const{data} = event
-        await prisma.user.update({
+    async ({ event }) => {
+        const { data } = event;
+        const userData = {
+            email: data?.email_addresses[0]?.email_address,
+            name: (data?.first_name || '') + ' ' + (data?.last_name || ''),
+            image: data?.image_url,
+        };
+
+        await prisma.user.upsert({
             where: {
-                id: data.id
+                id: data.id,
             },
-            data: {
-                email: data?.email_addresses[0]?.email_address,
-                name: data?.first_name + ' ' + data?.last_name,
-                image: data?.image_url,
-            }
-        })
+            update: userData,
+            create: {
+                id: data.id,
+                ...userData,
+            },
+        });
     }
-)
+);
 
 // Create an empty array where we'll export future Inngest functions
 export const functions = [
